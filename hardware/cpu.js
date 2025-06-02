@@ -1,50 +1,31 @@
+import { RAM4004 } from "./ram.js";
+
 export class CPU4004 {
   constructor() {
-    // Registers: Creates 16 4-bit registers (using 8-bit storage) initialized to 0.
-    // The 4004 has registers organized as 8 pairs (R0-R1, R2-R3, etc.) for 8-bit operations.
+    // Initialize all registers (16 4-bit registers)
     this.registers = new Uint8Array(16).fill(0);
 
-    // Accumulator: The primary 4-bit working register for arithmetic and logic operations.
-    this.accumulator = 0;
-
-    // Carry Flag: A 1-bit flag used for arithmetic operations (addition/subtraction overflow).
-    this.carry = false;
-
-    // Program Counter (PC): 12-bit counter that keeps track of the current instruction address in ROM
-    this.pc = 0;
-
-    // Stack: The 4004 has a 3-level hardware stack (12-bit width) for subroutine calls. The stack pointer tracks the current level.
-    this.stack = new Uint16Array(3).fill(0);
-    this.stackPointer = 0;
+    // Initialize RAM
+    this._ram = new RAM4004();
 
     // Memory interface
     this.memory = {
-      readROM: () => 0, // readROM: Reads from ROM (returns 0/NOP by default)
-      setRamAddress: () => {},
-      readRAM: () => 0,
-      writeRAM: () => {},
-      currentRamRegister: 0,
-      currentRamNibble: 0,
+      readROM: () => 0,
+      ram: this._ram,
+      currentRamCharacter: 0, // Now managed by CPU
+      currentRamNibble: 0, // Now managed by CPU
+
+      setRamAddress: (addr) => {
+        this.currentRamCharacter = (addr >> 4) & 0xf;
+        this.currentRamNibble = (addr >> 2) & 0x3;
+      },
+
+      readRAM: () =>
+        this._ram.read(this.currentRamCharacter, this.currentRamNibble),
+      writeRAM: (value) =>
+        this._ram.write(this.currentRamCharacter, this.currentRamNibble, value),
+      setRamChipSelect: (chip) => this._ram.setChipSelect(chip),
     };
-    // this.memory = new Memory4004();
-
-    // I/O ports
-    this.io = {
-      readInput: () => 0, // Always return 0 for input pins
-      writeOutput: () => {}, // Ignore all outputs
-      readStatus: () => 0, // Status registers zeroed
-      writeStatus: () => {},
-      testInputPin: () => false, // No input pins active
-    };
-    //this.io = new IO4004();
-
-    // Instruction cycle state
-    this.currentInstruction = null;
-    this.cycle = 0;
-
-    // Performance tracking
-    this.instructionsExecuted = 0;
-    this.cyclesExecuted = 0;
   }
 
   // Reset the CPU to initial state
@@ -337,13 +318,13 @@ export class CPU4004 {
         break;
 
       // 4. Send Register Control
-      case "SRC":
-        const regPairSRC = instruction.args[0];
-        const addressSRC = this.getRegisterPair(regPairSRC);
-        // In a real 4004, this would set up the RAM address
-        this.memory.setRamAddress(addressSRC);
+      case "SRC": {
+        const regPair = instruction.args[0];
+        const addr =
+          (this.registers[regPair * 2 + 1] << 4) | this.registers[regPair * 2];
+        this.memory.setRamAddress(addr);
         break;
-
+      }
       // 5. Fetch Indirect
       case "FIN":
         const regPairFIN = instruction.args[0];
@@ -438,11 +419,7 @@ export class CPU4004 {
 
       // 17. Write Main Memory
       case "WRM":
-        this.memory.writeRAM(
-          this.memory.currentRamRegister,
-          this.memory.currentRamNibble,
-          this.accumulator
-        );
+        this.memory.writeRAM(this.accumulator); // No longer needs parameters
         break;
 
       // 18. Write RAM Port
@@ -477,10 +454,7 @@ export class CPU4004 {
 
       // 25. Read Main Memory
       case "RDM":
-        this.accumulator = this.memory.readRAM(
-          this.memory.currentRamRegister,
-          this.memory.currentRamNibble
-        );
+        this.accumulator = this.memory.readRAM(); // No parameters needed
         break;
 
       // 26. Read ROM Port
