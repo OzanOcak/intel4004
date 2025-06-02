@@ -75,12 +75,14 @@ export class CPU4004 {
       const opcode = this.fetch();
       this.currentInstruction = this.decode(opcode);
       this.cycle++;
-    } else {
-      // Execute phase
-      this.execute(this.currentInstruction);
-      this.cycle = 0;
-      this.instructionsExecuted++;
+      this.cyclesExecuted++;
+      return; // Wait for next cycle to execute
     }
+
+    // Execute phase
+    this.execute(this.currentInstruction);
+    this.cycle = 0;
+    this.instructionsExecuted++;
     this.cyclesExecuted++;
   }
 
