@@ -1,19 +1,32 @@
 import { RAM4004 } from "./ram.js";
+import { ROM4004 } from "./rom.js";
 
 export class CPU4004 {
   constructor() {
-    // Initialize all registers (16 4-bit registers)
+    // Initialize CPU state
     this.registers = new Uint8Array(16).fill(0);
+    this.accumulator = 0;
+    this.carry = false;
+    this.pc = 0;
+    this.stack = new Array(3).fill(0); // Changed to regular Array
+    this.stackPointer = 0;
+    this.currentInstruction = null;
+    this.cycle = 0;
+    this.instructionsExecuted = 0;
+    this.cyclesExecuted = 0;
 
-    // Initialize RAM
     this._ram = new RAM4004();
+    this._rom = new ROM4004();
 
     // Memory interface
     this.memory = {
       readROM: () => 0,
       ram: this._ram,
+      rom: this._rom,
       currentRamCharacter: 0, // Now managed by CPU
       currentRamNibble: 0, // Now managed by CPU
+
+      // Initialize RAM and ROM
 
       setRamAddress: (addr) => {
         this.currentRamCharacter = (addr >> 4) & 0xf;
